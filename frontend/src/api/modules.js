@@ -16,6 +16,11 @@ export const scoreApi = {
     const query = new URLSearchParams(params)
     const suffix = query.toString() ? `?${query}` : ''
     return api.get(`/api/scores${suffix}`)
+  },
+  stats: (params = {}) => {
+    const query = new URLSearchParams(params)
+    const suffix = query.toString() ? `?${query}` : ''
+    return api.get(`/api/scores/stats${suffix}`)
   }
 }
 

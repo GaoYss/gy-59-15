@@ -10,6 +10,7 @@ import StatusBadge from '../components/StatusBadge.vue'
 import { subjects } from '../constants/options'
 
 const scores = ref([])
+const stats = ref([])
 const loading = ref(false)
 const message = reactive({ text: '', type: 'info' })
 const filters = reactive({ studentName: '', subject: '' })
@@ -30,7 +31,12 @@ async function loadScores() {
     const params = {}
     if (filters.studentName) params.studentName = filters.studentName
     if (filters.subject) params.subject = filters.subject
-    scores.value = await scoreApi.list(params)
+    const [scoreList, statsList] = await Promise.all([
+      scoreApi.list(params),
+      scoreApi.stats(params)
+    ])
+    scores.value = scoreList
+    stats.value = statsList
   } catch (error) {
     message.text = error.message
     message.type = 'error'
@@ -70,6 +76,33 @@ onMounted(loadScores)
     </form>
 
     <MessageBar :message="message.text" :type="message.type" />
+
+    <div v-if="stats.length" class="stats-grid">
+      <div v-for="item in stats" :key="item.subject" class="stat-card">
+        <div class="stat-card-header">
+          <span class="stat-subject">{{ item.subject }}</span>
+          <span class="stat-total">共 {{ item.total }} 人</span>
+        </div>
+        <div class="stat-metrics">
+          <div class="stat-metric">
+            <span class="stat-value">{{ item.avgScore }}</span>
+            <span class="stat-label">平均分</span>
+          </div>
+          <div class="stat-metric">
+            <span class="stat-value">{{ item.maxScore }}</span>
+            <span class="stat-label">最高分</span>
+          </div>
+          <div class="stat-metric">
+            <span class="stat-value stat-value--danger">{{ item.failCount }}</span>
+            <span class="stat-label">未通过</span>
+          </div>
+          <div class="stat-metric">
+            <span class="stat-value stat-value--success">{{ item.passRate }}%</span>
+            <span class="stat-label">及格率</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <EmptyState v-if="!loading && scores.length === 0" title="暂无成绩" description="模拟考试提交后会生成成绩。" />
     <DataTable v-else :columns="columns" :rows="scores">
