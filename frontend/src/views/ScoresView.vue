@@ -26,6 +26,11 @@ const columns = [
 
 const isStudentFiltered = computed(() => Boolean(filters.studentName.trim()))
 
+const hasAnyStudentRecord = computed(() => {
+  if (!isStudentFiltered.value) return false
+  return scores.value.length > 0
+})
+
 const statsTitle = computed(() => {
   if (isStudentFiltered.value) {
     return `${filters.studentName.trim()} 科目成绩`
@@ -53,6 +58,7 @@ const studentSubjectRecords = computed(() => {
         records
       }
     })
+    .filter((group) => group.records.length > 0)
 })
 
 async function loadScores() {
@@ -154,7 +160,7 @@ onMounted(loadScores)
         </div>
       </div>
 
-      <div v-else-if="isStudentFiltered" class="stats-grid">
+      <div v-else-if="isStudentFiltered && hasAnyStudentRecord" class="stats-grid">
         <div
           v-for="group in studentSubjectRecords"
           :key="group.subject"
@@ -165,13 +171,13 @@ onMounted(loadScores)
             <span class="stat-subject">{{ group.subject }}</span>
             <span class="stat-total">共 {{ group.records.length }} 次</span>
           </div>
-          <div v-if="group.records.length" class="attempt-list">
+          <div class="attempt-list">
             <div
               v-for="(record, index) in group.records"
               :key="record.id"
               class="attempt-row"
             >
-              <span class="attempt-index">第 {{ group.records.length - index }} 次</span>
+              <span class="attempt-index">第 {{ index + 1 }} 次</span>
               <span
                 class="attempt-score"
                 :class="record.passed ? 'stat-value--success' : 'stat-value--danger'"
@@ -180,8 +186,11 @@ onMounted(loadScores)
               <span class="attempt-time">{{ record.submittedAt }}</span>
             </div>
           </div>
-          <div v-else class="stat-no-record">暂无考试记录</div>
         </div>
+      </div>
+
+      <div v-else-if="isStudentFiltered && !hasAnyStudentRecord" class="stats-empty">
+        该学员暂无成绩
       </div>
 
       <div v-else class="stats-empty">暂无统计数据</div>
