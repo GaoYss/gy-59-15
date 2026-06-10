@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { Search } from 'lucide-vue-next'
 
 import { scoreApi } from '../api/modules'
@@ -24,6 +24,31 @@ const columns = [
   { key: 'submittedAt', label: '提交时间' }
 ]
 
+const isStudentFiltered = computed(() => Boolean(filters.studentName.trim()))
+
+const studentSubjectScores = computed(() => {
+  if (!isStudentFiltered.value) return []
+  const latestBySubject = new Map()
+  for (const record of scores.value) {
+    const existing = latestBySubject.get(record.subject)
+    if (!existing || record.submittedAt > existing.submittedAt) {
+      latestBySubject.set(record.subject, record)
+    }
+  }
+  return subjects
+    .filter((s) => !filters.subject || s === filters.subject)
+    .map((subject) => {
+      const record = latestBySubject.get(subject)
+      return {
+        subject,
+        hasRecord: Boolean(record),
+        score: record ? record.score : null,
+        passed: record ? record.passed : null,
+        submittedAt: record ? record.submittedAt : null
+      }
+    })
+})
+
 async function loadScores() {
   loading.value = true
   message.text = ''
@@ -31,12 +56,17 @@ async function loadScores() {
     const params = {}
     if (filters.studentName) params.studentName = filters.studentName
     if (filters.subject) params.subject = filters.subject
-    const [scoreList, statsList] = await Promise.all([
-      scoreApi.list(params),
-      scoreApi.stats(params)
-    ])
+
+    const requests = [scoreApi.list(params)]
+    if (!isStudentFiltered.value) {
+      requests.push(scoreApi.stats(params))
+    }
+
+    const [scoreList, statsList] = await Promise.all(requests)
     scores.value = scoreList
-    stats.value = statsList
+    if (statsList !== undefined) {
+      stats.value = statsList
+    }
   } catch (error) {
     message.text = error.message
     message.type = 'error'
@@ -69,7 +99,7 @@ onMounted(loadScores)
           <option v-for="subject in subjects" :key="subject">{{ subject }}</option>
         </select>
       </label>
-      <button class="primary-button inline-button" type="submit">
+      <button class="primary-button inline-button" type="submit" :disabled="loading">
         <Search :size="18" />
         <span>查询</span>
       </button>
@@ -77,31 +107,78 @@ onMounted(loadScores)
 
     <MessageBar :message="message.text" :type="message.type" />
 
-    <div v-if="stats.length" class="stats-grid">
-      <div v-for="item in stats" :key="item.subject" class="stat-card">
-        <div class="stat-card-header">
-          <span class="stat-subject">{{ item.subject }}</span>
-          <span class="stat-total">共 {{ item.total }} 人</span>
-        </div>
-        <div class="stat-metrics">
-          <div class="stat-metric">
-            <span class="stat-value">{{ item.avgScore }}</span>
-            <span class="stat-label">平均分</span>
+    <div class="stats-section" :class="{ 'is-loading': loading }">
+      <div class="stats-heading">
+        <h4>科目统计</h4>
+        <span v-if="loading" class="stats-loading">加载中...</span>
+      </div>
+
+      <div v-if="!isStudentFiltered && stats.length" class="stats-grid">
+        <div
+          v-for="item in stats"
+          :key="item.subject"
+          class="stat-card"
+          :class="{ 'stat-card--danger': item.passRate < 60 }"
+        >
+          <div class="stat-card-header">
+            <span class="stat-subject">{{ item.subject }}</span>
+            <span class="stat-total">共 {{ item.total }} 人</span>
           </div>
-          <div class="stat-metric">
-            <span class="stat-value">{{ item.maxScore }}</span>
-            <span class="stat-label">最高分</span>
-          </div>
-          <div class="stat-metric">
-            <span class="stat-value stat-value--danger">{{ item.failCount }}</span>
-            <span class="stat-label">未通过</span>
-          </div>
-          <div class="stat-metric">
-            <span class="stat-value stat-value--success">{{ item.passRate }}%</span>
-            <span class="stat-label">及格率</span>
+          <div class="stat-metrics">
+            <div class="stat-metric">
+              <span class="stat-value">{{ item.avgScore }}</span>
+              <span class="stat-label">平均分</span>
+            </div>
+            <div class="stat-metric">
+              <span class="stat-value">{{ item.maxScore }}</span>
+              <span class="stat-label">最高分</span>
+            </div>
+            <div class="stat-metric">
+              <span class="stat-value stat-value--danger">{{ item.failCount }}</span>
+              <span class="stat-label">未通过</span>
+            </div>
+            <div class="stat-metric">
+              <span
+                class="stat-value"
+                :class="item.passRate < 60 ? 'stat-value--danger' : 'stat-value--success'"
+              >{{ item.passRate }}%</span>
+              <span class="stat-label">及格率</span>
+            </div>
           </div>
         </div>
       </div>
+
+      <div v-else-if="isStudentFiltered" class="stats-grid">
+        <div
+          v-for="item in studentSubjectScores"
+          :key="item.subject"
+          class="stat-card"
+          :class="{ 'stat-card--danger': item.hasRecord && !item.passed }"
+        >
+          <div class="stat-card-header">
+            <span class="stat-subject">{{ item.subject }}</span>
+            <StatusBadge
+              v-if="item.hasRecord"
+              :status="item.passed ? '合格' : '不合格'"
+            />
+            <span v-else class="stat-no-record">暂无记录</span>
+          </div>
+          <div class="stat-metrics stat-metrics--single">
+            <div class="stat-metric">
+              <span
+                class="stat-value"
+                :class="{
+                  'stat-value--danger': item.hasRecord && !item.passed,
+                  'stat-value--muted': !item.hasRecord
+                }"
+              >{{ item.hasRecord ? item.score : '-' }}</span>
+              <span class="stat-label">分数</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-else class="stats-empty">暂无统计数据</div>
     </div>
 
     <EmptyState v-if="!loading && scores.length === 0" title="暂无成绩" description="模拟考试提交后会生成成绩。" />

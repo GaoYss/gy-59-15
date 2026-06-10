@@ -343,11 +343,48 @@ th {
   color: #26323d;
 }
 
+.stats-section {
+  margin-bottom: 20px;
+}
+
+.stats-section.is-loading .stats-grid {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.stats-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.stats-heading h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #1f2937;
+}
+
+.stats-loading {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.stats-empty {
+  padding: 24px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+  border: 1px dashed #cfd8df;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 14px;
-  margin-bottom: 18px;
 }
 
 .stat-card {
@@ -355,6 +392,13 @@ th {
   border-radius: 8px;
   padding: 16px;
   background: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card--danger {
+  border-color: #f8b4b4;
+  background: #fff5f5;
+  box-shadow: 0 4px 12px rgba(163, 41, 41, 0.08);
 }
 
 .stat-card-header {
@@ -364,6 +408,10 @@ th {
   margin-bottom: 12px;
   padding-bottom: 10px;
   border-bottom: 1px solid #e5ebef;
+}
+
+.stat-card--danger .stat-card-header {
+  border-bottom-color: #f8b4b4;
 }
 
 .stat-subject {
@@ -377,10 +425,20 @@ th {
   color: #6b7280;
 }
 
+.stat-no-record {
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
 .stat-metrics {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
+}
+
+.stat-metrics--single {
+  grid-template-columns: 1fr;
 }
 
 .stat-metric {
@@ -402,6 +460,10 @@ th {
 
 .stat-value--success {
   color: #1e6b3f;
+}
+
+.stat-value--muted {
+  color: #9ca3af;
 }
 
 .stat-label {
