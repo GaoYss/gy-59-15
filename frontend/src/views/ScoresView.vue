@@ -26,25 +26,31 @@ const columns = [
 
 const isStudentFiltered = computed(() => Boolean(filters.studentName.trim()))
 
-const studentSubjectScores = computed(() => {
+const statsTitle = computed(() => {
+  if (isStudentFiltered.value) {
+    return `${filters.studentName.trim()} 科目成绩`
+  }
+  return '科目统计'
+})
+
+const studentSubjectRecords = computed(() => {
   if (!isStudentFiltered.value) return []
-  const latestBySubject = new Map()
+  const grouped = new Map()
   for (const record of scores.value) {
-    const existing = latestBySubject.get(record.subject)
-    if (!existing || record.submittedAt > existing.submittedAt) {
-      latestBySubject.set(record.subject, record)
+    if (!grouped.has(record.subject)) {
+      grouped.set(record.subject, [])
     }
+    grouped.get(record.subject).push(record)
   }
   return subjects
     .filter((s) => !filters.subject || s === filters.subject)
     .map((subject) => {
-      const record = latestBySubject.get(subject)
+      const records = (grouped.get(subject) || []).slice().sort(
+        (a, b) => new Date(b.submittedAt) - new Date(a.submittedAt)
+      )
       return {
         subject,
-        hasRecord: Boolean(record),
-        score: record ? record.score : null,
-        passed: record ? record.passed : null,
-        submittedAt: record ? record.submittedAt : null
+        records
       }
     })
 })
@@ -109,7 +115,7 @@ onMounted(loadScores)
 
     <div class="stats-section" :class="{ 'is-loading': loading }">
       <div class="stats-heading">
-        <h4>科目统计</h4>
+        <h4>{{ statsTitle }}</h4>
         <span v-if="loading" class="stats-loading">加载中...</span>
       </div>
 
@@ -150,31 +156,31 @@ onMounted(loadScores)
 
       <div v-else-if="isStudentFiltered" class="stats-grid">
         <div
-          v-for="item in studentSubjectScores"
-          :key="item.subject"
+          v-for="group in studentSubjectRecords"
+          :key="group.subject"
           class="stat-card"
-          :class="{ 'stat-card--danger': item.hasRecord && !item.passed }"
+          :class="{ 'stat-card--danger': group.records.some(r => !r.passed) }"
         >
           <div class="stat-card-header">
-            <span class="stat-subject">{{ item.subject }}</span>
-            <StatusBadge
-              v-if="item.hasRecord"
-              :status="item.passed ? '合格' : '不合格'"
-            />
-            <span v-else class="stat-no-record">暂无记录</span>
+            <span class="stat-subject">{{ group.subject }}</span>
+            <span class="stat-total">共 {{ group.records.length }} 次</span>
           </div>
-          <div class="stat-metrics stat-metrics--single">
-            <div class="stat-metric">
+          <div v-if="group.records.length" class="attempt-list">
+            <div
+              v-for="(record, index) in group.records"
+              :key="record.id"
+              class="attempt-row"
+            >
+              <span class="attempt-index">第 {{ group.records.length - index }} 次</span>
               <span
-                class="stat-value"
-                :class="{
-                  'stat-value--danger': item.hasRecord && !item.passed,
-                  'stat-value--muted': !item.hasRecord
-                }"
-              >{{ item.hasRecord ? item.score : '-' }}</span>
-              <span class="stat-label">分数</span>
+                class="attempt-score"
+                :class="record.passed ? 'stat-value--success' : 'stat-value--danger'"
+              >{{ record.score }} 分</span>
+              <StatusBadge :status="record.passed ? '合格' : '不合格'" />
+              <span class="attempt-time">{{ record.submittedAt }}</span>
             </div>
           </div>
+          <div v-else class="stat-no-record">暂无考试记录</div>
         </div>
       </div>
 
